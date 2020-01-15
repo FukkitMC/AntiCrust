@@ -1,0 +1,17 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        jcenter()
+        maven {
+            name = "fabric"
+            url = "https://maven.fabricmc.net/"
+        }
+        maven {
+            name = "fukkit"
+            url = "https://raw.githubusercontent.com/FukkitMC/fukkit-repo/master/"
+        }
+    }
+}
+
+rootProject.name = 'AntiCrust'
+
