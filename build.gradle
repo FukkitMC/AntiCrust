@@ -2,12 +2,14 @@ plugins {
     id 'java'
     id("fabric-loom") version "0.2.6-SNAPSHOT"
     id("io.github.fukkitmc.crusty") version "1.1.1"
+    id "de.undercouch.download" version "4.0.2"
 }
 
 group 'org.example'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 1.8
+String yarnMappings = "1.15.1+build.36"
 
 repositories {
     mavenCentral()
@@ -20,7 +22,47 @@ repositories {
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
-    minecraft("net.minecraft", "minecraft", "1.15.1")
+    minecraft("net.minecraft:minecraft:1.15.1")
     mappings(fukkit.mappings("1.15.1"))
-    modCompile("net.fabricmc", "fabric-loader", "0.7.4+build.177")
+    modCompile("net.fabricmc:fabric-loader:0.7.4+build.177")
+}
+
+task createPatches(type: Download) {
+    src 'https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar'
+    dest new File(buildDir, "buildtools/BuildTools.jar")
+}
+
+tasks.createPatches.doLast {
+    javaexec {
+        main = "-jar"
+        args = ["BuildTools.jar"]
+        workingDir = new File(buildDir, "buildtools")
+    }
+}
+
+tasks.createPatches.finalizedBy migrateMappings {
+    inputDir("$buildDir/buildtools/CraftBukkit/src/main/java")
+    outputDir("$buildDir/src/craftbukkit/java")
+    mappings = "1.15.1+build.36"
+}
+
+tasks.createPatches.finalizedBy migrateMappings {
+    mappings = "1.15.1+build.36"
+    println("ohno")
+    new File("$buildDir/buildtools/work/").listFiles().each {
+        println(it)
+        if (it.isDirectory() && it.getName().startsWith("decompile-")) {
+            println("decomp found!")
+            new File(it, "classes").deleteDir() // bye
+            inputDir = it
+            outputDir = "$buildDir/src/vanilla/java"
+            return
+        }
+    }
+}
+
+task makePatch(type: Exec) {
+    workingDir = "$projectDir\\diff"
+    commandLine "$projectDir\\diff\\diff.exe", "-rbBdu", "$buildDir\\src\\vanilla\\java\\net", "$buildDir\\src\\craftbukkit\\java\\net"
+    standardOutput new FileOutputStream(new File("$buildDir\\output.patch"))
 }
