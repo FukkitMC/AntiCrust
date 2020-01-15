@@ -11,6 +11,11 @@ sourceCompatibility = 1.8
 
 repositories {
     mavenCentral()
+    jcenter()
+    maven {
+        name = "fabric"
+        url = "https://maven.fabricmc.net/"
+    }
 }
 
 dependencies {
