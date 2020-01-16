@@ -27,12 +27,12 @@ dependencies {
     modCompile("net.fabricmc:fabric-loader:0.7.4+build.177")
 }
 
-task createPatches(type: Download) {
+task setup(type: Download) {
     src 'https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar'
     dest new File(buildDir, "buildtools/BuildTools.jar")
 }
 
-tasks.createPatches.doLast {
+tasks.setup.doLast {
     javaexec {
         main = "-jar"
         args = ["BuildTools.jar"]
@@ -40,17 +40,15 @@ tasks.createPatches.doLast {
     }
 }
 
-tasks.createPatches.finalizedBy migrateMappings {
+tasks.setup.finalizedBy migrateMappings {
     inputDir("$buildDir/buildtools/CraftBukkit/src/main/java")
     outputDir("$buildDir/src/craftbukkit/java")
     mappings = "1.15.1+build.36"
 }
 
-tasks.createPatches.finalizedBy migrateMappings {
+tasks.setup.finalizedBy migrateMappings {
     mappings = "1.15.1+build.36"
-    println("ohno")
     new File("$buildDir/buildtools/work/").listFiles().each {
-        println(it)
         if (it.isDirectory() && it.getName().startsWith("decompile-")) {
             println("decomp found!")
             new File(it, "classes").deleteDir() // bye
@@ -61,8 +59,15 @@ tasks.createPatches.finalizedBy migrateMappings {
     }
 }
 
-task makePatch(type: Exec) {
-    workingDir = "$projectDir\\diff"
-    commandLine "$projectDir\\diff\\diff.exe", "-rbBdu", "$buildDir\\src\\vanilla\\java\\net", "$buildDir\\src\\craftbukkit\\java\\net"
-    standardOutput new FileOutputStream(new File("$buildDir\\output.patch"))
+tasks.setup.doLast {
+    try {
+        exec {
+            workingDir = "$projectDir\\diff"
+            commandLine "$projectDir\\diff\\diff.exe", "-rbBhdu", "$buildDir\\src\\vanilla\\java\\net", "$buildDir\\src\\craftbukkit\\java\\net"
+            standardOutput new FileOutputStream(new File("$buildDir\\output.patch"))
+        }
+    } catch(Exception e) {
+        e.printStackTrace(System.out)
+    }
 }
+
