@@ -24,6 +24,10 @@ hs_err_pid*
 .gradle
 .idea
 build
-patches
+output/patches
 temp
 *.hprof
+src/bukkit
+out
+output
+*.iml

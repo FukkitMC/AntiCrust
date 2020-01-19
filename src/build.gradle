@@ -1,8 +1,6 @@
-import net.fabricmc.loom.task.MigrateMappingsTask
-
 plugins {
     id 'java'
-    id("fabric-loom") version "0.2.7-SNAPSHOT"
+    id("fabric-loom") version "0.2.6-SNAPSHOT"
     id("io.github.fukkitmc.crusty") version "1.1.1"
     id "de.undercouch.download" version "4.0.2"
 }
@@ -19,6 +17,11 @@ repositories {
         name = "fabric"
         url = "https://maven.fabricmc.net/"
     }
+
+    maven {
+        name = 'spigot'
+        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+    }
 }
 
 dependencies {
@@ -26,8 +29,10 @@ dependencies {
     minecraft("net.minecraft:minecraft:1.15.1")
     mappings(fukkit.mappings("1.15.1"))
     modCompile("net.fabricmc:fabric-loader:0.7.4+build.177")
+    compile 'org.bukkit:bukkit:1.15.1-R0.1-SNAPSHOT'
 }
 
+import net.fabricmc.loom.task.MigrateMappingsTask
 
 task('downloadARR', type: Download) {
     src 'https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar'
@@ -37,11 +42,14 @@ task('downloadARR', type: Download) {
 task('runARR', type: JavaExec) {
     println("running build tools")
     main = "-jar"
-    args = ["BuildTools.jar"]
+    args = ["BuildTools.jar", "--compile", "CRAFTBUKKIT"]
     workingDir = new File(buildDir, "buildtools")
+    outputs.files(fileTree("$buildDir/buildtools"))
 }
 
+
 task('decrustVanilla', type: MigrateMappingsTask) {
+    inputs.files(fileTree("$buildDir/buildtools/work"))
     println("migrating unpatched craftbukkit...")
     mappings = "1.15.1+build.36"
     outputDir = "$buildDir/src/vanilla/java"
@@ -52,9 +60,13 @@ task('decrustVanilla', type: MigrateMappingsTask) {
             inputDir = it
         }
     }
+
+    outputs.files(fileTree("$buildDir/src/vanilla/java"))
 }
 
 task('decrustCraftBukkit', type: MigrateMappingsTask) {
+    inputs.files(fileTree("$buildDir/buildtools/Craftbukkit"))
+    outputs.files(fileTree("$buildDir/src/craftbukkit/java"))
     println("migrating patched craftbukkit...")
     inputDir "$buildDir/buildtools/CraftBukkit/src/main/java"
     outputDir "$buildDir/src/craftbukkit/java"
@@ -62,6 +74,8 @@ task('decrustCraftBukkit', type: MigrateMappingsTask) {
 }
 
 task('createPatches') {
+    inputs.files(fileTree("$buildDir/src"))
+    outputs.file("$buildDir/output.patch")
     println("creating patch file...")
     try {
         exec {
@@ -76,6 +90,8 @@ task('createPatches') {
 }
 
 task('parsePatches') {
+    inputs.file("$buildDir/output.patch")
+    outputs.files('patches')
     File folder = new File('patches')
     folder.mkdirs()
     BufferedReader reader = new BufferedReader(new FileReader("$buildDir/output.patch"))
@@ -83,6 +99,7 @@ task('parsePatches') {
     reader.lines().each {
         stack.add(it)
     }
+    reader.close()
 
     List<String> unique = new ArrayList<>()
     while (!stack.isEmpty()) {
@@ -114,8 +131,10 @@ task('parsePatches') {
     stream.close()
 }
 
-tasks.runARR.dependsOn('downloadARR')
-tasks.decrustVanilla.dependsOn('runARR')
-tasks.decrustCraftBukkit.dependsOn('runARR')
-tasks.createPatches.dependsOn('decrustVanilla', 'decrustCraftBukkit')
-tasks.parsePatches.dependsOn('createPatches')
+// TODO auto-remap craftbukkit only
+// how to do
+// extract buildtools/CraftBukkit/original-craftbukkit-1.**.*-R0.1-SNAPSHOT.jar
+// tinyremap JUST CRAFTBUKKIT, so remove the net.minecraft package (org.bukkit.*)
+//     craftbukkit jar - nms
+//     cb -> int -> yarn
+//     profit
